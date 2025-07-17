@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Weather Website</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+  <!-- Remove the weather-container section to free up space -->
+  <div id="map-legend-row">
+    <div id="map-and-controls-col">
+      <div id="imageOverlayContainer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:500;"></div>
+      <div id="map"></div>
+      <div id="controls-row">
+        <div id="form-row-wrap">
+          <form id="typhoonPointForm" class="typhoon-point-form vertical-form">
+            <input type="number" step="any" id="latInput" placeholder="Latitude" required />
+            <input type="number" step="any" id="lonInput" placeholder="Longitude" required />
+            <select id="weekdayInput" required>
+              <option value="" disabled selected>Weekday</option>
+              <option value="Monday">Monday</option>
+              <option value="Tuesday">Tuesday</option>
+              <option value="Wednesday">Wednesday</option>
+              <option value="Thursday">Thursday</option>
+              <option value="Friday">Friday</option>
+              <option value="Saturday">Saturday</option>
+              <option value="Sunday">Sunday</option>
+            </select>
+            <select id="timeOfDayInput" required>
+              <option value="" disabled selected>Time</option>
+              <option value="2 AM">2 AM</option>
+              <option value="5 AM">5 AM</option>
+              <option value="8 AM">8 AM</option>
+              <option value="11 AM">11 AM</option>
+              <option value="2 PM">2 PM</option>
+              <option value="5 PM">5 PM</option>
+              <option value="8 PM">8 PM</option>
+              <option value="11 PM">11 PM</option>
+            </select>
+            <select id="monthInput" required>
+              <option value="" disabled selected>Month</option>
+              <option value="January">January</option>
+              <option value="February">February</option>
+              <option value="March">March</option>
+              <option value="April">April</option>
+              <option value="May">May</option>
+              <option value="June">June</option>
+              <option value="July">July</option>
+              <option value="August">August</option>
+              <option value="September">September</option>
+              <option value="October">October</option>
+              <option value="November">November</option>
+              <option value="December">December</option>
+            </select>
+            <select id="dayInput" required>
+              <option value="" disabled selected>Day</option>
+            </select>
+            <select id="labelInput" required>
+              <option value="" disabled selected>Label</option>
+              <option value="TD -">TD -</option>
+              <option value="TS -">TS -</option>
+              <option value="STS -">STS -</option>
+              <option value="TY -">TY -</option>
+              <option value="STY -">STY -</option>
+              <option value="LPA -">LPA -</option>
+            </select>
+            <button type="submit">Add Point</button>
+          </form>
+          <div id="delete-controls">
+            <button id="clearPointsBtn" type="button">Remove All Points</button>
+            <select id="pointSelect"></select>
+            <button id="deleteSelectedBtn" type="button">Delete Selected Point</button>
+          </div>
+        </div>
+        <div id="controls-row-bottom">
+          <button id="insertImageBtn" type="button">Insert Image</button>
+          <input type="file" id="imageFileInput" accept="image/*" style="display:none;">
+          <input type="range" id="imageOpacity" min="0" max="1" step="0.01" value="0.5" style="display:none;">
+          <button id="removeImageBtn" type="button" style="display:none;">Remove Image</button>
+          <button id="removeConeBtn" type="button" style="display:none;">Remove Cone</button>
+          <label style="color:#a67c52;font-weight:bold;">Orange Wind Radius</label>
+          <input type="range" id="orangeWindSlider" min="20000" max="300000" step="1000" value="165000" style="width:120px;">
+          <button id="toggleOrangeWindBtn" type="button">Hide Orange</button>
+          <label style="color:#e74c3c;font-weight:bold;">Red Wind Radius</label>
+          <input type="range" id="redWindSlider" min="20000" max="300000" step="1000" value="77000" style="width:120px;">
+          <button id="toggleRedWindBtn" type="button">Hide Red</button>
+        </div>
+      </div>
+    </div>
+    <!-- Removed typhoon-legend legend box -->
+  </div>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <!-- Leaflet.Editable plugin -->
+  <script src="https://unpkg.com/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/mwasil/Leaflet.Rainviewer/leaflet.rainviewer.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
