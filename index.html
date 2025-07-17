@@ -9,16 +9,34 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-  <!-- Remove the weather-container section to free up space -->
   <div id="map-legend-row">
     <div id="map-and-controls-col">
       <div id="imageOverlayContainer" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:500;"></div>
-      <div id="map"></div>
+      <div id="map">
+        <img src="meteox.png" alt="MeteoX Logo" style="position:absolute;top:10px;left:10px;z-index:1004;width:120px;height:auto;opacity:0.92;pointer-events:none;" />
+        <button id="mapSizeToggleBtn" type="button">⛶</button>
+        <div id="map-legend-box" style="position:absolute;bottom:12px;left:12px;z-index:1004;background:rgba(30,30,30,0.95);color:#fff;border-radius:8px;padding:7px 9px;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,0.12);min-width:120px;max-width:180px;">
+          <div style="font-weight:bold;font-size:12px;margin-bottom:4px;">Legend</div>
+          <div style="display:flex;align-items:center;margin-bottom:2px;"><span style="display:inline-block;width:12px;height:7px;background:#a67c52;border-radius:3px;margin-right:6px;"></span>55 km/h wind or higher</div>
+          <div style="display:flex;align-items:center;margin-bottom:2px;"><span style="display:inline-block;width:12px;height:7px;background:#e74c3c;border-radius:3px;margin-right:6px;"></span>90 km/h wind or higher</div>
+          <div style="display:flex;align-items:center;margin-bottom:2px;"><span style="display:inline-block;width:12px;height:7px;background:rgba(255,255,255,0.12);border:2px dashed #ccc;border-radius:3px;margin-right:6px;"></span>Cone of Uncertainty</div>
+          <div style="display:flex;align-items:center;margin-bottom:2px;"><span style="display:inline-block;width:12px;height:2px;background:#fff;margin-right:6px;"></span>Forecast Track</div>
+          <div style="display:flex;align-items:center;margin-bottom:4px;"><span style="display:inline-block;width:12px;height:2px;background:none;border-top:2px dashed #888;border-radius:1px;margin-right:6px;"></span>Track</div>
+          <div style="font-size:10px;margin-top:4px;line-height:1.3;">
+            <b>LPA</b> - Low Pressure Area<br/>
+            <b>TD</b> - Tropical Depression<br/>
+            <b>TS</b> - Tropical Storm<br/>
+            <b>STS</b> - Severe Tropical Storm<br/>
+            <b>TY</b> - Typhoon<br/>
+            <b>STY</b> - Super Typhoon
+          </div>
+        </div>
+      </div>
       <div id="controls-row">
-        <div id="form-row-wrap">
-          <form id="typhoonPointForm" class="typhoon-point-form vertical-form">
-            <input type="number" step="any" id="latInput" placeholder="Latitude" required />
-            <input type="number" step="any" id="lonInput" placeholder="Longitude" required />
+        <div class="controls-group-row" id="controls-row-1">
+        <form id="typhoonPointForm" class="typhoon-point-form vertical-form">
+          <input type="number" step="any" id="latInput" placeholder="Latitude" required />
+          <input type="number" step="any" id="lonInput" placeholder="Longitude" required />
             <select id="weekdayInput" required>
               <option value="" disabled selected>Weekday</option>
               <option value="Monday">Monday</option>
@@ -67,28 +85,35 @@
               <option value="STY -">STY -</option>
               <option value="LPA -">LPA -</option>
             </select>
-            <button type="submit">Add Point</button>
-          </form>
-          <div id="delete-controls">
-            <button id="clearPointsBtn" type="button">Remove All Points</button>
-            <select id="pointSelect"></select>
-            <button id="deleteSelectedBtn" type="button">Delete Selected Point</button>
-          </div>
+          <button type="submit">Add Point</button>
+        </form>
+        <div id="delete-controls">
+          <button id="clearPointsBtn" type="button">Remove All Points</button>
+          <select id="pointSelect"></select>
+          <button id="deleteSelectedBtn" type="button">Delete Selected Point</button>
         </div>
-        <div id="controls-row-bottom">
+      </div>
+        <div class="controls-group-row" id="controls-row-2">
           <button id="insertImageBtn" type="button">Insert Image</button>
           <input type="file" id="imageFileInput" accept="image/*" style="display:none;">
           <input type="range" id="imageOpacity" min="0" max="1" step="0.01" value="0.5" style="display:none;">
           <button id="removeImageBtn" type="button" style="display:none;">Remove Image</button>
           <button id="removeConeBtn" type="button" style="display:none;">Remove Cone</button>
+          <button id="startTracingBtn" type="button" style="display:none;">Start Tracing Cone</button>
+          <button id="finishTracingBtn" type="button" style="display:none;">Finish Cone</button>
+          <button id="drawCustomLineBtn" type="button" style="display:none;">Draw Custom Line</button>
+          <button id="finishCustomLineBtn" type="button" style="display:none;">Finish Line</button>
+          <button id="removeCustomLineBtn" type="button" style="display:none;">Remove Custom Line</button>
+        </div>
+        <div class="controls-group-row" id="controls-row-3">
           <label style="color:#a67c52;font-weight:bold;">Orange Wind Radius</label>
-          <input type="range" id="orangeWindSlider" min="20000" max="300000" step="1000" value="165000" style="width:120px;">
+          <input type="range" id="orangeWindSlider" min="20000" max="1000000" step="1000" value="165000">
           <button id="toggleOrangeWindBtn" type="button">Hide Orange</button>
           <label style="color:#e74c3c;font-weight:bold;">Red Wind Radius</label>
-          <input type="range" id="redWindSlider" min="20000" max="300000" step="1000" value="77000" style="width:120px;">
+          <input type="range" id="redWindSlider" min="20000" max="1000000" step="1000" value="77000">
           <button id="toggleRedWindBtn" type="button">Hide Red</button>
         </div>
-      </div>
+    </div>
     </div>
     <!-- Removed typhoon-legend legend box -->
   </div>

@@ -4,9 +4,11 @@ body {
   min-height: 100vh;
   margin: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-end;
   overflow-x: auto;
+  padding: 20px;
+  box-sizing: border-box;
 }
 html, body {
   width: 100vw;
@@ -89,27 +91,105 @@ html, body {
 #map-legend-row {
   display: flex;
   flex-direction: row;
-  justify-content: flex-start;
+  justify-content: flex-end;
   align-items: flex-start;
   gap: 24px;
+  max-width: 1200px;
   width: 100%;
-  margin: 0 auto;
+  margin: 0;
   position: relative;
-  overflow-x: auto;
+  overflow: unset;
+  height: auto;
+  min-height: 0;
+  align-self: flex-end;
 }
 #map-and-controls-col {
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
   position: relative;
+  align-items: flex-end;
+  width: auto;
+  max-width: none;
+  overflow: unset;
+  height: auto;
+  min-height: 0;
 }
 #map {
-  width: 1100px;
-  aspect-ratio: 16/9;
-  height: 570px; /* 1100/16*9 */
-  min-height: 400px;
+  width: 500px;
+  height: 300px;
+  min-height: 200px;
   border-radius: 12px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.2);
+  transition: all 0.3s ease;
+  position: relative;
+}
+
+@media (max-width: 1200px) {
+  #map {
+    width: 900px;
+    height: 506px;
+  }
+}
+
+@media (max-width: 1000px) {
+  #map {
+    width: 700px;
+    height: 394px;
+  }
+}
+
+@media (max-width: 800px) {
+  #map {
+    width: 500px;
+    height: 281px;
+  }
+}
+
+#map.fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  z-index: 9999 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#mapSizeToggleBtn {
+  position: absolute;
+  bottom: 14px;
+  right: 18px;
+  z-index: 1001;
+  background: rgba(30,30,30,0.95) !important;
+  color: #fff !important;
+  font-weight: normal;
+  border: 1px solid #444 !important;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 16px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  opacity: 0.95;
+  transition: background 0.2s, color 0.2s;
+  cursor: pointer;
+  font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
+}
+
+#mapSizeToggleBtn:hover {
+  background: #222 !important;
+  opacity: 1;
+}
+
+#mapSizeToggleBtn.smaller {
+  background: white !important;
+  color: #333 !important;
+  border-color: #ccc !important;
+}
+
+#mapSizeToggleBtn.smaller:hover {
+  background: #f4f4f4 !important;
 }
 #typhoon-legend {
   flex: 0 0 220px;
@@ -126,46 +206,39 @@ html, body {
   order: 3;
   flex-shrink: 1;
 }
+.controls-group-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin-bottom: 6px;
+  width: 100%;
+  justify-content: flex-end;
+}
+#controls-row button {
+  min-width: 90px;
+  max-width: 180px;
+  white-space: nowrap;
+}
+#controls-row select, #controls-row input[type="number"], #controls-row input[type="text"] {
+  min-width: 80px;
+  max-width: 140px;
+}
+#controls-row input[type="color"] {
+  min-width: 36px;
+  max-width: 36px;
+  padding: 0;
+}
+#controls-row label {
+  min-width: 80px;
+  max-width: 180px;
+}
 #controls-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  background: #b2e0ee;
-  padding: 10px 0 10px 0;
-  border-radius: 0 0 12px 12px;
-  margin-bottom: 0;
-  min-height: 90px;
-}
-#form-row-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px 10px;
-  width: 100%;
-  margin-bottom: 8px;
-}
-#controls-row-bottom {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 14px 10px;
-  width: 100%;
-  margin-bottom: 0;
-}
-#controls-row input[type="number"],
-#controls-row select {
-  width: 80px;
-  min-width: 60px;
-  max-width: 100px;
-  padding: 6px 8px;
-  margin: 0 2px;
-  border-radius: 6px;
-  border: 1px solid #aaa;
-  font-size: 1rem;
+  padding: 8px 10px 10px 10px;
 }
 #controls-row input[type="range"] {
-  margin: 0 8px;
+  height: 18px;
+  margin: 0 4px;
 }
 #controls-row button {
   padding: 6px 12px;
@@ -181,8 +254,8 @@ html, body {
   background: #e0f7fa;
 }
 #controls-row label {
-  margin: 0 4px 0 12px;
-  font-size: 1rem;
+  font-size: 0.97em;
+  margin: 0 2px 0 8px;
 }
 #delete-controls {
   display: flex;
@@ -213,7 +286,7 @@ html, body {
 @media (max-width: 900px) {
   #controls-row, #typhoonPointForm {
     flex-direction: column;
-    align-items: flex-start;
+  align-items: flex-start;
     gap: 8px;
   }
   #controls-row input[type="number"],
@@ -263,4 +336,167 @@ html, body {
 } 
 .hurricane-point-icon img {
   filter: brightness(0) invert(1) drop-shadow(0 0 2px #000);
+} 
+.himawari-control {
+  background: white;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  opacity: 0.93;
+  transition: background 0.2s, color 0.2s;
+  cursor: pointer;
+  position: absolute;
+  top: 54px;
+  right: 18px;
+  z-index: 1002;
+}
+.himawari-control:hover {
+  background: #f4f4f4;
+  opacity: 1;
+} 
+#radar-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.95);
+  border-radius: 6px;
+  padding: 6px 10px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.18);
+  position: absolute;
+  bottom: 18px;
+  right: 18px;
+  z-index: 1002;
+}
+.radar-playpause-control {
+  background: white;
+  color: #333;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  opacity: 0.93;
+  transition: background 0.2s, color 0.2s;
+  cursor: pointer;
+  padding: 0;
+  line-height: 32px;
+  text-align: center;
+}
+.radar-playpause-control:hover {
+  background: #f4f4f4;
+  opacity: 1;
+}
+#radarFrameSlider {
+  width: 120px;
+  margin: 0 6px;
+}
+#radarFrameTime {
+  font-size: 12px;
+  color: #333;
+  min-width: 80px;
+  display: inline-block;
+  text-align: center;
+} 
+#map.fullscreen {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  min-height: 100vh !important;
+  z-index: 9999 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+#map.fullscreen #mapSizeToggleBtn,
+#map.fullscreen #mapFullScreenBtn {
+  z-index: 10001;
+} 
+#mapFullScreenBtn {
+  position: absolute;
+  bottom: 14px;
+  right: 130px;
+  z-index: 1001;
+  background: white !important;
+  color: #333 !important;
+  font-weight: normal;
+  border: 1px solid #ccc !important;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 12px;
+  box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+  opacity: 0.9;
+  transition: background 0.2s, color 0.2s;
+  cursor: pointer;
+  font-family: 'Helvetica Neue', Arial, Helvetica, sans-serif;
+}
+
+#mapFullScreenBtn:hover {
+  background: #f4f4f4 !important;
+  opacity: 1;
+} 
+#controls-row.hidden {
+  display: none !important;
+}
+
+#controlsToggleBtn {
+  transition: transform 0.2s;
+}
+#controlsToggleBtn.collapsed {
+  transform: rotate(180deg);
+} 
+.leaflet-control-layers.leaflet-control-hidden {
+  display: none !important;
+}
+
+#leafletLayerToggleBtn {
+  background: rgba(30,30,30,0.95) !important;
+  color: #fff !important;
+  border: 1px solid #444 !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+  font-size: 18px;
+  transition: background 0.2s, color 0.2s;
+}
+
+#leafletLayerToggleBtn:hover {
+  background: #222 !important;
+  color: #fff !important;
+}
+
+#leafletLayerToggleBtn.collapsed {
+  transform: rotate(180deg);
+} 
+.leaflet-control-layers {
+  background: rgba(30,30,30,0.95) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
+  font-size: 11px !important;
+}
+
+.leaflet-control-layers label,
+.leaflet-control-layers span,
+.leaflet-control-layers input {
+  color: #fff !important;
+  background: transparent !important;
+} 
+.leaflet-control-layers-base label span,
+.leaflet-control-layers-base label {
+  color: transparent !important;
+  font-size: 0 !important;
+}
+
+/* Hide the radio input for the only base layer */
+.leaflet-control-layers-base input[type="radio"] {
+  display: none !important;
+} 
+.leaflet-control-layers-separator {
+  display: none !important;
 } 
