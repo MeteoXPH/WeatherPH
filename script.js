@@ -1235,7 +1235,7 @@ if (document.getElementById('map')) {
   }
 
   function styleProvince(feature) {
-    const name = feature.properties && (feature.properties.NAME_1 || feature.properties.NAME_2 || feature.properties.province);
+    const name = feature.properties && feature.properties.NAME_1;
     if (filledProvinces[name]) {
       return {
         color: '#ffe44c',
@@ -1264,21 +1264,16 @@ if (document.getElementById('map')) {
   clearProvinceFillsBtn.onclick = resetProvinceFills;
 
   fetch('ph-provinces.geojson')
-    .then(res => {
-      if (!res.ok) throw new Error('ph-provinces.geojson not found');
-      return res.json();
-    })
+    .then(res => res.json())
     .then(data => {
       provinceLayer = L.geoJSON(data, {
         style: styleProvince,
         onEachFeature: function(feature, layer) {
           layer.on('click', function(e) {
             if (magicFillActive && !drawingHighlight) {
-              const name = (feature.properties && (feature.properties.NAME_1 || feature.properties.NAME_2 || feature.properties.province)) || 'UNKNOWN';
-              console.log('Clicked province name:', name);
+              const name = feature.properties && feature.properties.NAME_1;
               filledProvinces[name] = true;
-              console.log('filledProvinces:', filledProvinces);
-              if (provinceLayer) provinceLayer.setStyle(styleProvince);
+              provinceLayer.setStyle(styleProvince);
               clearProvinceFillsBtn.style.display = '';
               L.DomEvent.stopPropagation(e);
             }
