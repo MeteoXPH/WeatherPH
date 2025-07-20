@@ -18,6 +18,15 @@ if (document.getElementById('map')) {
   // Add default base layer
   darkLayer.addTo(map);
 
+  // --- Live Cloud Maps Static Image Overlay (Clouds Only) ---
+  // (Removed all Live Cloud overlay logic and attribution)
+
+  // --- Remove Cloud Overlay Toggle Button ---
+  // (Removed cloudBtnContainer, makeCloudBtn, btnLiveCloud, and related logic)
+
+  // Start with Live Cloud overlay ON by default
+  // addLiveCloudOverlay(); // This line is removed
+
   // Add layer control
   const baseLayers = {
     "Dark": darkLayer
@@ -364,28 +373,7 @@ if (document.getElementById('map')) {
     });
 
   // --- Removed Philippine provinces (ADM2) boundary layer fetch due to missing file and CORS issues ---
-  // fetch('https://raw.githubusercontent.com/tonywr71/gadm-geodata/main/geojson/PHL/PHL_adm2.geojson')
-  //   .then(res => {
-  //     if (!res.ok) throw new Error('PHL_adm2.geojson not found');
-  //     return res.json();
-  //   })
-  //   .then(data => {
-  //     L.geoJSON(data, {
-  //       style: function(feature) {
-  //         return {
-  //           color: '#eee',
-  //           weight: 0.7,
-  //           fill: false,
-  //           opacity: 0.9
-  //         };
-  //       },
-  //       interactive: false,
-  //       pane: 'overlayPane'
-  //     }).addTo(map);
-  //   })
-  //   .catch(err => {
-  //     console.warn('ADM2 boundary file missing or invalid:', err);
-  //   });
+  // --- Direct Quezon Province Polygon Overlay (approximate shape) ---
 
   // Handle form input for adding points
   const form = document.getElementById('typhoonPointForm');
@@ -745,144 +733,101 @@ if (document.getElementById('map')) {
   let rainviewerFrameIdx = 0;
   let rainviewerLayer = null;
   let rainviewerAnimTimer = null;
+  let rainviewerActive = false;
 
-  // Fetch RainViewer radar frames (last 6 frames, ~1 hour)
   function fetchRainviewerFrames(callback) {
     fetch('https://api.rainviewer.com/public/weather-maps.json')
       .then(res => res.json())
       .then(data => {
-        rainviewerFrames = [...(data.radar.past || []), ...(data.radar.nowcast || [])].filter(Boolean).slice(-6);
-        rainviewerFrameIdx = rainviewerFrames.length - 1;
-        console.log('RainViewer frames:', rainviewerFrames); // Debug
-        if (!rainviewerFrames.length) {
-          alert('No RainViewer radar frames available.');
+        if (data && data.radar && data.radar.past) {
+          rainviewerFrames = data.radar.past.map(f => f.time);
+          callback();
         }
-        if (callback) callback();
-      })
-      .catch(err => {
-        alert('Error fetching RainViewer frames: ' + err);
-        // Fallback: try to show a static radar tile for testing
-        showStaticRainviewerTile();
       });
   }
 
-  function showRainviewerAnim(noAdvance) {
-    if (!rainviewerFrames.length) {
-      showStaticRainviewerTile();
-      return;
-    }
-    const ts = rainviewerFrames[rainviewerFrameIdx];
-    const url = `https://tilecache.rainviewer.com/v2/radar/${ts}/256/{z}/{x}/{y}/2/1_1.png`;
-    if (rainviewerLayer) {
-      map.removeLayer(rainviewerLayer);
-      rainviewerLayer = null;
-    }
-    rainviewerLayer = L.tileLayer(url, {
+  function showRainviewerAnim() {
+    if (!rainviewerFrames.length || !rainviewerActive) return;
+    const nextIdx = (rainviewerFrameIdx + 1) % rainviewerFrames.length;
+    const nextTs = rainviewerFrames[nextIdx];
+    const nextUrl = `https://tilecache.rainviewer.com/v2/radar/${nextTs}/256/{z}/{x}/{y}/2/1_1.png`;
+
+    // Preload next frame
+    const nextLayer = L.tileLayer(nextUrl, {
       attribution: 'Radar: RainViewer',
       maxZoom: 10,
       minZoom: 2,
-      opacity: 0.7,
+      opacity: 0.0, // Always start at 0
       zIndex: 2000
     });
-    rainviewerLayer.addTo(map);
-    if (!radarPaused && !noAdvance) {
-      rainviewerAnimTimer = setTimeout(() => {
-        rainviewerFrameIdx = (rainviewerFrameIdx + 1) % rainviewerFrames.length;
-        showRainviewerAnim();
-      }, 500);
-    }
+
+    nextLayer.on('load', function() {
+      if (!rainviewerActive) { map.removeLayer(nextLayer); return; }
+      // Fade in new layer
+      let fade = 0;
+      const fadeStep = 0.08;
+      const maxOpacity = 0.8;
+      const fadeIn = () => {
+        if (!rainviewerActive) { map.removeLayer(nextLayer); return; }
+        fade += fadeStep;
+        if (fade >= maxOpacity) {
+          nextLayer.setOpacity(maxOpacity);
+          if (rainviewerLayer) map.removeLayer(rainviewerLayer);
+          rainviewerLayer = nextLayer;
+          rainviewerFrameIdx = nextIdx;
+          rainviewerAnimTimer = setTimeout(showRainviewerAnim, 500);
+        } else {
+          nextLayer.setOpacity(fade);
+          setTimeout(fadeIn, 30);
+        }
+      };
+      nextLayer.setOpacity(0.0); // Ensure it starts at 0
+      fadeIn();
+    });
+
+    // Add next layer (will be invisible until loaded)
+    nextLayer.setOpacity(0.0); // Defensive: always set to 0 before adding
+    nextLayer.addTo(map);
   }
 
   function hideRainviewerAnim() {
+    rainviewerActive = false;
     if (rainviewerLayer) map.removeLayer(rainviewerLayer);
     rainviewerLayer = null;
     if (rainviewerAnimTimer) clearTimeout(rainviewerAnimTimer);
-  }
-
-  // Fallback: Show a static RainViewer tile for troubleshooting
-  function showStaticRainviewerTile() {
-    if (rainviewerLayer) map.removeLayer(rainviewerLayer);
-    rainviewerLayer = L.tileLayer('https://tilecache.rainviewer.com/v2/radar/1688700000/256/{z}/{x}/{y}/2/1_1.png', {
-      attribution: 'Radar: RainViewer',
-      maxZoom: 10,
-      minZoom: 2,
-      opacity: 0.7,
-      zIndex: 2000
+    rainviewerAnimTimer = null;
+    // Remove any preloaded/fading-in layers
+    const allLayers = Object.values(map._layers);
+    allLayers.forEach(layer => {
+      if (layer && layer._url && typeof layer.setOpacity === 'function' && layer._url.includes('tilecache.rainviewer.com')) {
+        map.removeLayer(layer);
+      }
     });
-    rainviewerLayer.addTo(map);
-    alert('Showing static RainViewer tile for troubleshooting.');
-  }
-
-  // --- OpenWeatherMap Animated Radar Layer Integration ---
-  // Insert your OpenWeatherMap API key here:
-  const OWM_API_KEY = '7b7c9906ae1a8fb884b074a06bd1d78f'; // <-- User's actual API key
-  let owmRadarLayers = [];
-  let owmRadarAnimTimer = null;
-  let owmRadarFrameIdx = 0;
-  let owmRadarTimestamps = [];
-
-  // Helper: get last 12 timestamps (2 hours, 10 min step)
-  function getLast12Timestamps() {
-    const now = Math.floor(Date.now() / 1000);
-    const step = 600; // 10 min
-    let arr = [];
-    for (let i = 11; i >= 0; i--) {
-      arr.push(now - i * step);
-    }
-    return arr;
-  }
-
-  function showOWMRadarAnim() {
-    if (!owmRadarTimestamps.length) return;
-    const ts = owmRadarTimestamps[owmRadarFrameIdx];
-    const url = `https://maps.openweathermap.org/maps/2.0/radar/{z}/{x}/{y}?appid=${OWM_API_KEY}&tm=${ts}`;
-    // Remove previous radar layer
-    owmRadarLayers.forEach(layer => map.removeLayer(layer));
-    owmRadarLayers = [];
-    // Add new radar layer
-    const radarLayer = L.tileLayer(url, {
-      attribution: 'Radar: OpenWeatherMap',
-      maxZoom: 10,
-      minZoom: 2,
-      opacity: 0.7,
-      zIndex: 2000
-    });
-    radarLayer.addTo(map);
-    owmRadarLayers.push(radarLayer);
-    owmRadarAnimTimer = setTimeout(() => {
-      owmRadarFrameIdx = (owmRadarFrameIdx + 1) % owmRadarTimestamps.length;
-      showOWMRadarAnim();
-    }, 500);
-  }
-
-  function hideOWMRadarAnim() {
-    owmRadarLayers.forEach(layer => map.removeLayer(layer));
-    owmRadarLayers = [];
-    if (owmRadarAnimTimer) clearTimeout(owmRadarAnimTimer);
   }
 
   // Dummy layer for 'Radar' so it appears in the layer control
-  const dummyOWMRadarLayer = L.layerGroup();
+  const dummyRainviewerLayer = L.layerGroup();
 
-  // Add layer control for Typhoon Track and 'Radar' (as a dummy overlay)
+  // Add layer control for Typhoon Track, Radar, and Satellite (as dummy overlays)
   L.control.layers(baseLayers, {
     'Typhoon Track': typhoonLayerGroup,
-    'Radar': dummyOWMRadarLayer
+    'Radar': dummyRainviewerLayer
   }, { position: 'topright', collapsed: false }).addTo(map);
 
-  // Always show Typhoon Track by default
   typhoonLayerGroup.addTo(map);
 
-  // Listen for overlayadd/overlayremove events to toggle the animated radar overlay
+  // Listen for overlayadd/overlayremove events to toggle the animated radar and static satellite overlays
   map.on('overlayadd', function(e) {
     if (e.name === 'Radar') {
-      owmRadarTimestamps = getLast12Timestamps();
-      owmRadarFrameIdx = 0;
-      showOWMRadarAnim();
+      rainviewerActive = true;
+      fetchRainviewerFrames(() => {
+        rainviewerFrameIdx = 0;
+        showRainviewerAnim();
+      });
     }
   });
   map.on('overlayremove', function(e) {
-    if (e.name === 'Radar') hideOWMRadarAnim();
+    if (e.name === 'Radar') hideRainviewerAnim();
   });
 
   // --- Leaflet Layer Control Toggle Button Logic ---
@@ -913,7 +858,7 @@ if (document.getElementById('map')) {
       const mapDiv = document.getElementById('map');
       if (mapDiv) mapDiv.appendChild(btn);
       let leafletPanelHidden = false;
-      const mapSizeToggleBtn = document.getElementById('mapSizeToggleBtn');
+  const mapSizeToggleBtn = document.getElementById('mapSizeToggleBtn');
       const mapFullScreenBtn = document.getElementById('mapFullScreenBtn');
       btn.onclick = function() {
         leafletPanelHidden = !leafletPanelHidden;
@@ -925,7 +870,7 @@ if (document.getElementById('map')) {
           leafletLayerControl.classList.remove('leaflet-control-hidden');
           btn.classList.remove('collapsed');
           btn.innerHTML = '⯈';
-        }
+    }
       };
     }
   }, 0);
@@ -933,25 +878,27 @@ if (document.getElementById('map')) {
   // --- Map Size Toggle Functionality ---
   const mapSizeToggleBtn = document.getElementById('mapSizeToggleBtn');
   const mapElement = document.getElementById('map');
-  let isMapFullScreen = false;
-  // Ensure map starts in small screen mode
-  mapElement.classList.remove('fullscreen');
-  mapElement.classList.add('smaller');
-  if (mapSizeToggleBtn) mapSizeToggleBtn.textContent = '⛶';
-
+  // 0 = small, 1 = semi, 2 = full
+  let mapSizeState = 0;
+  function setMapSizeState(state) {
+    mapElement.classList.remove('fullscreen', 'semi', 'smaller');
+    if (state === 0) {
+      mapElement.classList.add('smaller');
+      mapSizeToggleBtn.textContent = '⛶';
+    } else if (state === 1) {
+      mapElement.classList.add('semi');
+      mapSizeToggleBtn.textContent = '🗖';
+    } else {
+      mapElement.classList.add('fullscreen');
+      mapSizeToggleBtn.textContent = '🗗';
+    }
+    setTimeout(() => map.invalidateSize(), 350);
+  }
+  setMapSizeState(0);
   if (mapSizeToggleBtn) {
     mapSizeToggleBtn.onclick = function() {
-      isMapFullScreen = !isMapFullScreen;
-      if (isMapFullScreen) {
-        mapElement.classList.add('fullscreen');
-        mapElement.classList.remove('smaller');
-        mapSizeToggleBtn.textContent = '🗗';
-      } else {
-        mapElement.classList.remove('fullscreen');
-        mapElement.classList.add('smaller');
-        mapSizeToggleBtn.textContent = '⛶';
-      }
-      setTimeout(() => map.invalidateSize(), 350);
+      mapSizeState = (mapSizeState + 1) % 3;
+      setMapSizeState(mapSizeState);
     };
   }
 
@@ -1003,21 +950,344 @@ if (document.getElementById('map')) {
     };
   }
 
-  const controlsToggleBtn = document.getElementById('controlsToggleBtn');
-  const controlsRowPanel = document.getElementById('controls-row');
-  let controlsHidden = false;
-  if (controlsToggleBtn && controlsRowPanel) {
-    controlsToggleBtn.onclick = function() {
-      controlsHidden = !controlsHidden;
-      if (controlsHidden) {
-        controlsRowPanel.classList.add('hidden');
-        controlsToggleBtn.classList.add('collapsed');
-        controlsToggleBtn.innerHTML = '⯇';
-      } else {
-        controlsRowPanel.classList.remove('hidden');
-        controlsToggleBtn.classList.remove('collapsed');
-        controlsToggleBtn.innerHTML = '⯈';
-      }
-    };
+  // --- Cloud Overlay Toggle Button (NASA GIBS only) ---
+  // const cloudBtnContainer = document.createElement('div'); // This line is removed
+  // cloudBtnContainer.style.position = 'absolute'; // This line is removed
+  // cloudBtnContainer.style.top = '60px'; // This line is removed
+  // cloudBtnContainer.style.right = '18px'; // This line is removed
+  // cloudBtnContainer.style.zIndex = 1005; // This line is removed
+  // cloudBtnContainer.style.background = 'rgba(30,30,30,0.92)'; // This line is removed
+  // cloudBtnContainer.style.borderRadius = '8px'; // This line is removed
+  // cloudBtnContainer.style.padding = '6px 8px'; // This line is removed
+  // cloudBtnContainer.style.display = 'flex'; // This line is removed
+  // cloudBtnContainer.style.flexDirection = 'column'; // This line is removed
+  // cloudBtnContainer.style.gap = '6px'; // This line is removed
+
+  // function makeCloudBtn(label) { // This function is removed
+  //   const btn = document.createElement('button'); // This line is removed
+  //   btn.textContent = label; // This line is removed
+  //   btn.style.background = '#fff'; // This line is removed
+  //   btn.style.color = '#222'; // This line is removed
+  //   btn.style.border = '1px solid #bbb'; // This line is removed
+  //   btn.style.borderRadius = '5px'; // This line is removed
+  //   btn.style.padding = '4px 10px'; // This line is removed
+  //   btn.style.fontSize = '13px'; // This line is removed
+  //   btn.style.cursor = 'pointer'; // This line is removed
+  //   btn.style.opacity = '0.92'; // This line is removed
+  //   btn.onmouseenter = () => btn.style.background = '#e0f7fa'; // This line is removed
+  //   btn.onmouseleave = () => btn.style.background = '#fff'; // This line is removed
+  //   return btn; // This line is removed
+  // } // This block is removed
+
+  // const btnGibs = makeCloudBtn('NASA GIBS (Daily)'); // This line is removed
+
+  // function clearCloudLayers() { // This function is removed
+  //   map.removeLayer(gibsLayer); // This line is removed
+  // } // This block is removed
+
+  // btnGibs.onclick = function() { // This line is removed
+  //   clearCloudLayers(); // This line is removed
+  //   gibsLayer.addTo(map); // This line is removed
+  // }; // This block is removed
+
+  // cloudBtnContainer.appendChild(btnGibs); // This line is removed
+  // document.getElementById('map').appendChild(cloudBtnContainer); // This line is removed
+
+  // Start with NASA GIBS by default // This line is removed
+  // btnGibs.click(); // This line is removed
+
+  // const controlsToggleBtn = document.getElementById('controlsToggleBtn'); // This line is removed
+  // const controlsRowPanel = document.getElementById('controls-row'); // This line is removed
+  // let controlsHidden = false; // This line is removed
+  // if (controlsToggleBtn && controlsRowPanel) { // This block is removed
+  //   controlsToggleBtn.onclick = function() { // This line is removed
+  //     controlsHidden = !controlsHidden; // This line is removed
+  //     if (controlsHidden) { // This line is removed
+  //       controlsRowPanel.classList.add('hidden'); // This line is removed
+  //       controlsToggleBtn.classList.add('collapsed'); // This line is removed
+  //       controlsToggleBtn.innerHTML = '⯇'; // This line is removed
+  //     } else { // This line is removed
+  //       controlsRowPanel.classList.remove('hidden'); // This line is removed
+  //       controlsToggleBtn.classList.remove('collapsed'); // This line is removed
+  //       controlsToggleBtn.innerHTML = '⯈'; // This line is removed
+  //     } // This block is removed
+  //   }; // This line is removed
+  // } // This block is removed
+
+  // --- Draggable Wind Radii Feature ---
+  let orangeWindCenter = null; // [lat, lon] or null for default
+  let redWindCenter = null;    // [lat, lon] or null for default
+  let orangeWindHandle = null;
+  let redWindHandle = null;
+
+  const orangeWindDraggable = document.getElementById('orangeWindDraggable');
+  const redWindDraggable = document.getElementById('redWindDraggable');
+  const orangeWindSnapBtn = document.getElementById('orangeWindSnapBtn');
+  const redWindSnapBtn = document.getElementById('redWindSnapBtn');
+
+  function createDraggableHandle(center, color, onDrag, onDragEnd) {
+    return L.marker(center, {
+      draggable: true,
+      icon: L.divIcon({
+        className: '',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+        html: `<div style="width:16px;height:16px;background:${color};border:2px solid #fff;border-radius:3px;box-shadow:0 1px 4px rgba(0,0,0,0.18);"></div>`
+      }),
+      zIndexOffset: 3000
+    })
+    .on('drag', onDrag)
+    .on('dragend', onDragEnd);
   }
+
+  if (orangeWindDraggable) orangeWindDraggable.onchange = updateWindCircles;
+  if (redWindDraggable) redWindDraggable.onchange = updateWindCircles;
+
+  if (orangeWindSnapBtn) orangeWindSnapBtn.onclick = function() {
+    if (forecastPoints[0]) {
+      orangeWindCenter = [forecastPoints[0].lat, forecastPoints[0].lon];
+      updateWindCircles();
+    }
+  };
+  if (redWindSnapBtn) redWindSnapBtn.onclick = function() {
+    if (forecastPoints[0]) {
+      redWindCenter = [forecastPoints[0].lat, forecastPoints[0].lon];
+      updateWindCircles();
+    }
+  };
+
+  function updateWindCircles() {
+    // Remove previous handles
+    if (orangeWindHandle) { map.removeLayer(orangeWindHandle); orangeWindHandle = null; }
+    if (redWindHandle) { map.removeLayer(redWindHandle); redWindHandle = null; }
+    // Remove previous wind circles
+    windCircles.forEach(c => map.removeLayer(c));
+    windCircles = [];
+    // Orange wind circle
+    let orangeVisible = windRadiiVisibility.orange;
+    let orangeCenter = orangeWindCenter || (forecastPoints[0] ? [forecastPoints[0].lat, forecastPoints[0].lon] : null);
+    let orangeCircle = null;
+    if (orangeVisible && orangeCenter) {
+      orangeCircle = L.circle(orangeCenter, {
+        radius: windRadiiValues.orange, color: '#a67c52', fillColor: '#a67c52', fillOpacity: 0.35, weight: 1
+      }).addTo(map);
+      windCircles.push(orangeCircle);
+      if (orangeWindDraggable && orangeWindDraggable.checked) {
+        orangeWindHandle = createDraggableHandle(
+          orangeCenter,
+          '#a67c52',
+          function(e) {
+            orangeWindCenter = [e.target.getLatLng().lat, e.target.getLatLng().lng];
+            if (orangeCircle) {
+              orangeCircle.setLatLng(e.target.getLatLng());
+            }
+          },
+          function(e) {
+            orangeWindCenter = [e.target.getLatLng().lat, e.target.getLatLng().lng];
+            updateWindCircles();
+          }
+        );
+        orangeWindHandle.addTo(map);
+      }
+    }
+    // Red wind circle
+    let redVisible = windRadiiVisibility.red;
+    let redCenter = redWindCenter || (forecastPoints[0] ? [forecastPoints[0].lat, forecastPoints[0].lon] : null);
+    let redCircle = null;
+    if (redVisible && redCenter) {
+      redCircle = L.circle(redCenter, {
+        radius: windRadiiValues.red, color: '#e74c3c', fillColor: '#e74c3c', fillOpacity: 0.5, weight: 1
+      }).addTo(map);
+      windCircles.push(redCircle);
+      if (redWindDraggable && redWindDraggable.checked) {
+        redWindHandle = createDraggableHandle(
+          redCenter,
+          '#e74c3c',
+          function(e) {
+            redWindCenter = [e.target.getLatLng().lat, e.target.getLatLng().lng];
+            if (redCircle) {
+              redCircle.setLatLng(e.target.getLatLng());
+            }
+          },
+          function(e) {
+            redWindCenter = [e.target.getLatLng().lat, e.target.getLatLng().lng];
+            updateWindCircles();
+          }
+        );
+        redWindHandle.addTo(map);
+      }
+    }
+  }
+
+  // Call updateWindCircles whenever wind radii, visibility, or forecastPoints change
+  // Replace/add calls to updateWindCircles() after relevant actions
+  // Example: after drawTrack(), updateConeLayer(), etc.
+
+  // --- Custom Highlight Drawing Tool ---
+  let drawingHighlight = false;
+  let highlightPoints = [];
+  let highlightLayer = null;
+
+  // Create highlight control buttons
+  const startHighlightBtn = document.createElement('button');
+  startHighlightBtn.textContent = 'Start Highlight';
+  startHighlightBtn.type = 'button';
+  startHighlightBtn.style.margin = '6px';
+
+  const finishHighlightBtn = document.createElement('button');
+  finishHighlightBtn.textContent = 'Finish Highlight';
+  finishHighlightBtn.type = 'button';
+  finishHighlightBtn.style.margin = '6px';
+  finishHighlightBtn.style.display = 'none';
+
+  const removeHighlightBtn = document.createElement('button');
+  removeHighlightBtn.textContent = 'Remove Highlight';
+  removeHighlightBtn.type = 'button';
+  removeHighlightBtn.style.margin = '6px';
+  removeHighlightBtn.style.display = 'none';
+
+  // Add to controls row
+  if (controlsRow) {
+    controlsRow.appendChild(startHighlightBtn);
+    controlsRow.appendChild(finishHighlightBtn);
+    controlsRow.appendChild(removeHighlightBtn);
+  }
+
+  startHighlightBtn.onclick = function() {
+    drawingHighlight = true;
+    highlightPoints = [];
+    if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; }
+    startHighlightBtn.style.display = 'none';
+    finishHighlightBtn.style.display = '';
+    map.getContainer().style.cursor = 'crosshair';
+  };
+
+  finishHighlightBtn.onclick = function() {
+    drawingHighlight = false;
+    if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; }
+    if (highlightPoints.length > 2) {
+      highlightLayer = L.polygon(highlightPoints, {
+        color: '#ffe44c',
+        weight: 2,
+        fillColor: '#ffe44c',
+        fillOpacity: 0.7
+      }).addTo(map);
+      removeHighlightBtn.style.display = '';
+    }
+    startHighlightBtn.style.display = '';
+    finishHighlightBtn.style.display = 'none';
+    map.getContainer().style.cursor = '';
+  };
+
+  removeHighlightBtn.onclick = function() {
+    if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; }
+    highlightPoints = [];
+    removeHighlightBtn.style.display = 'none';
+  };
+
+  map.on('click', function(e) {
+    if (drawingHighlight) {
+      highlightPoints.push([e.latlng.lat, e.latlng.lng]);
+      if (highlightLayer) { map.removeLayer(highlightLayer); highlightLayer = null; }
+      if (highlightPoints.length > 1) {
+        highlightLayer = L.polygon(highlightPoints, {
+          color: '#ffe44c',
+          weight: 2,
+          fillColor: '#ffe44c',
+          fillOpacity: 0.3
+        }).addTo(map);
+      }
+    }
+  });
+
+  // --- Province-aware Magic Fill Tool ---
+  let provinceLayer = null;
+  let filledProvinces = {};
+  let magicFillActive = false;
+
+  // Create Magic Fill toggle button
+  const magicFillBtn = document.createElement('button');
+  magicFillBtn.textContent = 'Magic Fill';
+  magicFillBtn.type = 'button';
+  magicFillBtn.style.margin = '6px';
+  if (controlsRow) {
+    controlsRow.appendChild(magicFillBtn);
+  }
+  magicFillBtn.onclick = function() {
+    magicFillActive = !magicFillActive;
+    magicFillBtn.style.background = magicFillActive ? '#ffe44c' : '';
+    magicFillBtn.style.color = magicFillActive ? '#222' : '';
+    if (magicFillActive) {
+      map.getContainer().style.cursor = 'cell';
+    } else {
+      map.getContainer().style.cursor = '';
+    }
+  };
+
+  // Create Clear Province Fills button
+  const clearProvinceFillsBtn = document.createElement('button');
+  clearProvinceFillsBtn.textContent = 'Clear Fills';
+  clearProvinceFillsBtn.type = 'button';
+  clearProvinceFillsBtn.style.margin = '6px';
+  clearProvinceFillsBtn.style.display = 'none';
+  if (controlsRow) {
+    controlsRow.appendChild(clearProvinceFillsBtn);
+  }
+
+  function styleProvince(feature) {
+    const name = feature.properties && (feature.properties.NAME_1 || feature.properties.NAME_2 || feature.properties.province);
+    if (filledProvinces[name]) {
+      return {
+        color: '#ffe44c',
+        weight: 2,
+        fill: true,
+        fillColor: '#ffe44c',
+        fillOpacity: 0.7,
+        opacity: 0.9
+      };
+    } else {
+      return {
+        color: '#eee',
+        weight: 0.7,
+        fill: false,
+        opacity: 0.9
+      };
+    }
+  }
+
+  function resetProvinceFills() {
+    filledProvinces = {};
+    if (provinceLayer) provinceLayer.setStyle(styleProvince);
+    clearProvinceFillsBtn.style.display = 'none';
+  }
+
+  clearProvinceFillsBtn.onclick = resetProvinceFills;
+
+  fetch('ph-provinces.geojson')
+    .then(res => {
+      if (!res.ok) throw new Error('ph-provinces.geojson not found');
+      return res.json();
+    })
+    .then(data => {
+      provinceLayer = L.geoJSON(data, {
+        style: styleProvince,
+        onEachFeature: function(feature, layer) {
+          layer.on('click', function(e) {
+            if (magicFillActive && !drawingHighlight) {
+              const name = (feature.properties && (feature.properties.NAME_1 || feature.properties.NAME_2 || feature.properties.province)) || 'UNKNOWN';
+              console.log('Clicked province name:', name);
+              filledProvinces[name] = true;
+              console.log('filledProvinces:', filledProvinces);
+              if (provinceLayer) provinceLayer.setStyle(styleProvince);
+              clearProvinceFillsBtn.style.display = '';
+              L.DomEvent.stopPropagation(e);
+            }
+          });
+        },
+        interactive: true
+      }).addTo(map);
+    })
+    .catch(err => {
+      console.warn('Province boundary file missing or invalid:', err);
+    });
 } 

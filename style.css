@@ -500,3 +500,25 @@ html, body {
 .leaflet-control-layers-separator {
   display: none !important;
 } 
+#map.semi {
+  width: 900px !important;
+  height: 506px !important;
+  min-height: 300px !important;
+  position: relative !important;
+  left: 0 !important;
+  top: 0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.2) !important;
+  z-index: 1 !important;
+} 
+/* Make Leaflet attribution watermark smaller and less prominent */
+.leaflet-control-attribution {
+  font-size: 6px !important;
+  padding: 0 !important;
+  opacity: 0.3;
+  bottom: 0px !important;
+  right: 0px !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+  margin: 0 !important;
+} 
